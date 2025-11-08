@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PSX Futuristic Trader — Demo</title>
+  <meta name="description" content="Futuristic 3D PSX trading UI demo (single-file).">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg1: #010014;
+      --bg2: #06041b;
+      --neon-cyan: #00ffe1;
+      --neon-magenta: #ff2dca;
+      --glass: rgba(255,255,255,0.04);
+      --card: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.02);
+      --accent: linear-gradient(90deg,var(--neon-cyan),var(--neon-magenta));
+      --glass-border: rgba(255,255,255,0.06);
+      --soft: rgba(255,255,255,0.06);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(12,8,30,0.6), transparent),
+                  radial-gradient(1000px 400px at 90% 80%, rgba(24,4,60,0.45), transparent),
+                  linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:#e6eef8;
+      overflow:hidden;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      perspective:1200px;
+    }
+
+    /* Canvas backdrop fills the screen */
+    #bgCanvas{
+      position:fixed; inset:0; width:100%; height:100%; z-index:0;
+      display:block;
+      filter: blur(10px) saturate(1.2);
+      transform-origin:center;
+    }
+
+    /* Main container */
+    .wrap{
+      position:relative;
+      z-index:2;
+      width:100%;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:40px;
+      gap:40px;
+    }
+
+    /* Layout grid */
+    .grid{
+      width:1200px;
+      max-width:calc(100% - 80px);
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap:28px;
+      align-items:start;
+      transform:translateZ(40px) rotateX(6deg);
+    }
+
+    /* Left column — control panel */
+    .panel{
+      background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border-radius:20px;
+      border:1px solid var(--glass-border);
+      padding:22px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      backdrop-filter: blur(8px) saturate(1.1);
+      transform-style:preserve-3d;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      margin-bottom:18px;
+    }
+    .logo{
+      width:56px;height:56px;border-radius:12px;
+      background: conic-gradient(from 180deg at 50% 50%, var(--neon-cyan), var(--neon-magenta));
+      box-shadow: 0 6px 18px rgba(0,255,225,0.06), 0 0 32px rgba(255,45,202,0.06);
+      display:flex;align-items:center;justify-content:center;
+      color:#031; font-weight:800; font-family:Orbitron,monospace; letter-spacing:0.06em;
+      transform:translateZ(30px);
+    }
+    .brand h2{margin:0;font-size:18px; font-weight:700}
+    .brand p{margin:0;margin-top:2px;font-size:12px;color:#9fb3cf}
+
+    .ticker {
+      margin:14px 0;
+      padding:10px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.12), transparent);
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.02);
+      overflow:hidden;
+      position:relative;
+      display:flex; align-items:center; gap:10px;
+    }
+    .ticker .stream{
+      display:flex; gap:28px; white-space:nowrap; transform:translateZ(20px);
+      animation: scroll 18s linear infinite;
+    }
+    .tick-item{
+      display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border-radius:8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+      border:1px solid rgba(255,255,255,0.02);
+      font-weight:600; font-size:13px;
+    }
+    .tick-item .sym{ font-family:Orbitron,monospace; color:var(--neon-cyan); margin-right:6px }
+    .tick-item.up{ box-shadow: 0 6px 18px rgba(0,255,225,0.04), 0 0 12px rgba(0,255,225,0.06)}
+    .tick-item.down{ box-shadow: 0 6px 18px rgba(255,45,202,0.04), 0 0 12px rgba(255,45,202,0.06)}
+
+    @keyframes scroll{
+      0%{ transform:translateX(0) }
+      100%{ transform:translateX(-50%) }
+    }
+
+    /* Controls */
+    .controls{ display:flex; flex-direction:column; gap:12px; margin-top:8px }
+    .control-row{ display:flex; gap:10px; align-items:center }
+    .btn{
+      cursor:pointer; border:0; padding:10px 14px; border-radius:10px; font-weight:700;
+      background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      color:#eaf6ff; border:1px solid rgba(255,255,255,0.04);
+      transition: all .22s ease;
+      box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+      transform:translateZ(20px);
+    }
+    .btn:hover{ transform:translateY(-6px) scale(1.02) }
+    .btn.primary{
+      background: var(--accent);
+      color:#031;
+      box-shadow: 0 10px 40px rgba(0,255,225,0.08), 0 0 40px rgba(255,45,202,0.04);
+      border: none;
+      letter-spacing:0.02em;
+    }
+
+    /* Right column — main content */
+    .main{
+      min-height:520px;
+      display:flex; flex-direction:column; gap:18px;
+      transform-style:preserve-3d;
+    }
+
+    .hero{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:18px; padding:20px; border:1px solid var(--glass-border);
+      display:flex; gap:18px; align-items:center; justify-content:space-between;
+      box-shadow: 0 14px 40px rgba(2,6,23,0.55);
+      transform:translateZ(60px);
+      overflow:hidden;
+    }
+    .hero-left{ display:flex; gap:16px; align-items:center }
+    .hero h1{ font-family:Orbitron,monospace; font-size:26px; margin:0; letter-spacing:0.02em;}
+    .hero p{ margin:0; color:#b7d2ea}
+    .hero-right{ display:flex; gap:12px; align-items:center }
+
+    /* 3D rotating cube (visual) */
+    .cube-wrap{ width:140px; height:100px; perspective:800px; display:flex; align-items:center; justify-content:center }
+    .cube{
+      width:90px; height:90px; transform-style:preserve-3d; animation: spin 10s linear infinite;
+    }
+    .cube .face{
+      position:absolute; width:90px; height:90px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; color:#021;
+      border:1px solid rgba(255,255,255,0.06);
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6), 0 0 40px rgba(0,255,225,0.03);
+    }
+    .cube .face.front{ transform: translateZ(45px) }
+    .cube .face.back{ transform: rotateY(180deg) translateZ(45px) }
+    .cube .face.right{ transform: rotateY(90deg) translateZ(45px) }
+    .cube .face.left{ transform: rotateY(-90deg) translateZ(45px) }
+    .cube .face.top{ transform: rotateX(90deg) translateZ(45px) }
+    .cube .face.bottom{ transform: rotateX(-90deg) translateZ(45px) }
+    @keyframes spin { 0%{transform:rotateX(10deg) rotateY(0)} 100%{transform:rotateX(10deg) rotateY(360deg)} }
+
+    /* Dashboard cards */
+    .cards{ display:grid; grid-template-columns: repeat(3,1fr); gap:16px; margin-top:6px }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:14px; padding:16px; border:1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 8px 26px rgba(1,3,10,0.6);
+      transition: transform .28s cubic-bezier(.2,.9,.2,1), box-shadow .28s;
+      transform-style:preserve-3d;
+      cursor:default;
+      position:relative;
+      overflow:visible;
+      min-height:120px;
+    }
+    .card:hover{ transform:translateY(-12px) scale(1.02); box-shadow: 0 30px 80px rgba(1,6,25,0.7) }
+
+    .card .title{ font-weight:700; margin-bottom:8px; font-size:14px }
+    .card .value{ font-family:Orbitron,monospace; font-size:20px; letter-spacing:0.02em }
+    .card .muted{ font-size:12px; color:#9bb3cf; margin-top:6px }
+
+    /* Hover neon border highlight */
+    .card::after{
+      content:''; position:absolute; inset:0; border-radius:14px;
+      pointer-events:none; opacity:0; transition:opacity .28s;
+      box-shadow: 0 0 28px rgba(0,255,225,0.06), inset 0 0 48px rgba(255,45,202,0.02);
+      mix-blend-mode:screen;
+    }
+    .card:hover::after{ opacity:1 }
+
+    /* Strategy / Trade panel */
+    .trade{
+      display:flex; gap:12px; align-items:center;
+    }
+    .trade .cols{ display:flex; gap:12px; align-items:center }
+    .input{
+      background:transparent; border:1px solid rgba(255,255,255,0.04);
+      border-radius:10px; padding:10px 12px; color:#e6eef8; font-weight:600;
+      min-width:120px;
+      outline:none;
+    }
+    .small{ font-size:12px; padding:8px 10px }
+
+    /* Footer / small */
+    .meta{ font-size:12px; color:#9fb3cf; margin-top:8px }
+
+    /* Responsive */
+    @media (max-width:980px){
+      .grid{ grid-template-columns: 1fr; transform:translateZ(0) rotateX(0) }
+      .cube-wrap{ display:none }
+      .cards{ grid-template-columns: repeat(2,1fr) }
+    }
+    @media (max-width:620px){
+      .cards{ grid-template-columns: 1fr }
+      .hero h1{ font-size:20px }
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated canvas background -->
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
+
+  <div class="wrap">
+    <div class="grid" id="appGrid">
+      <!-- LEFT PANEL -->
+      <aside class="panel" id="leftPanel" role="region" aria-label="Control panel">
+        <div class="brand">
+          <div class="logo">PSX</div>
+          <div>
+            <h2>PSX Futuristic Trader</h2>
+            <p>Neon demo • Single-file UI</p>
+          </div>
+        </div>
+
+        <div class="ticker" aria-hidden="true">
+          <div class="stream" id="tickerStream">
+            <!-- Javascript fills ticker items -->
+          </div>
+          <div style="position:absolute; right:8px; opacity:0.12; font-size:12px; font-weight:700; transform:translateZ(30px)">LIVE</div>
+        </div>
+
+        <div class="controls">
+          <div class="control-row">
+            <button class="btn primary" id="connectBtn">CONNECT WALLET</button>
+            <button class="btn" id="paperBtn">PAPER TRADE</button>
+          </div>
+
+          <div class="control-row">
+            <input class="input small" id="symbolInput" placeholder="Symbol e.g. HBL" />
+            <select id="strategySelect" class="input small" style="min-width:140px">
+              <option>Momentum</option>
+              <option>Mean Reversion</option>
+              <option>Breakout</option>
+            </select>
+          </div>
+
+          <div class="control-row">
+            <button class="btn" id="runBtn">RUN STRATEGY</button>
+            <button class="btn" id="backtestBtn">BACKTEST</button>
+          </div>
+
+          <div class="meta">Tip: Hover cards for a 3D pop. Drag mouse for parallax.</div>
+        </div>
+      </aside>
+
+      <!-- RIGHT / MAIN -->
+      <main class="main" role="main">
+        <section class="hero" aria-label="Main dashboard">
+          <div class="hero-left">
+            <div class="cube-wrap" title="3D Cube logo">
+              <div class="cube" id="cube">
+                <div class="face front">FX</div>
+                <div class="face back">PSX</div>
+                <div class="face right">AI</div>
+                <div class="face left">API</div>
+                <div class="face top">LP</div>
+                <div class="face bottom">ML</div>
+              </div>
+            </div>
+            <div>
+              <h1>Realtime PSX Intelligence</h1>
+              <p>Interactive demo interface with neon 3D aesthetics. This page is a single-file UI mock — replace simulated feeds with real data when ready.</p>
+            </div>
+          </div>
+
+          <div class="hero-right">
+            <div style="text-align:right">
+              <div style="font-size:12px;color:#9fb3cf">Portfolio Value</div>
+              <div style="font-family:Orbitron,monospace;font-weight:800;font-size:22px">₨ 1,234,567</div>
+            </div>
+            <div style="width:12px"></div>
+            <div style="display:flex; gap:8px; align-items:center">
+              <button class="btn" title="Open settings">⚙️</button>
+              <button class="btn" title="Notifications">🔔</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="cards" id="cardsArea" aria-label="Cards">
+          <div class="card" data-card>
+            <div class="title">KSE-100 Movers</div>
+            <div class="value" id="moversVal">Loading…</div>
+            <div class="muted">Top 3 intraday movers shown in ticker</div>
+          </div>
+
+          <div class="card" data-card>
+            <div class="title">Strategy Snapshot</div>
+            <div class="value" id="stratVal">Momentum • WinRate 58%</div>
+            <div class="muted">Simulated results. Click RUN to simulate live.</div>
+          </div>
+
+          <div class="card" data-card>
+            <div class="title">Risk Meter</div>
+            <div class="value" id="riskVal">Moderate</div>
+            <div class="muted">Max drawdown target &lt; 10%</div>
+          </div>
+
+          <div class="card" data-card>
+            <div class="title">Latest Trade</div>
+            <div class="value" id="tradeVal">—</div>
+            <div class="muted">Place simulated trades with the UI</div>
+          </div>
+
+          <div class="card" data-card>
+            <div class="title">Indicators</div>
+            <div class="value" id="indVal">RSI 56 • EMA(20) 114.2</div>
+            <div class="muted">Live-calculated from simulated ticks</div>
+          </div>
+
+          <div class="card" data-card>
+            <div class="title">Latency</div>
+            <div class="value" id="latVal">43ms</div>
+            <div class="muted">Demo network latency</div>
+          </div>
+        </section>
+
+        <section style="display:flex; gap:12px; margin-top:10px; align-items:center">
+          <div class="panel" style="flex:1; padding:14px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <div style="font-weight:800">Simulated Chart</div>
+              <div style="font-size:12px; color:#9fb3cf">Realtime sample feed</div>
+            </div>
+            <canvas id="miniChart" style="width:100%; height:150px; margin-top:12px; border-radius:10px; background:linear-gradient(180deg, rgba(0,0,0,0.15), transparent)"></canvas>
+          </div>
+
+          <div class="panel" style="width:320px; min-width:240px; padding:14px">
+            <div style="font-weight:800">Trade Console</div>
+            <div style="margin-top:10px; display:flex; gap:8px">
+              <input class="input" id="qty" placeholder="Qty" value="100" />
+              <input class="input" id="price" placeholder="Price" value="100.00" />
+            </div>
+            <div style="display:flex; gap:8px; margin-top:10px">
+              <button class="btn primary" id="buyBtn">BUY</button>
+              <button class="btn" id="sellBtn">SELL</button>
+            </div>
+            <div class="meta" style="margin-top:10px">This console simulates orders locally without any API connectivity.</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // Background particle/nebula + parallax
+    // =========================
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let w = canvas.width = innerWidth;
+    let h = canvas.height = innerHeight;
+    const DPR = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = innerWidth * DPR;
+    canvas.height = innerHeight * DPR;
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.scale(DPR, DPR);
+
+    // particles
+    const NUM = Math.floor(Math.min(200, (innerWidth*innerHeight)/15000));
+    const particles = [];
+    for(let i=0;i<NUM;i++){
+      particles.push({
+        x: Math.random()*w,
+        y: Math.random()*h,
+        vx: (Math.random()-0.5)*0.3,
+        vy: (Math.random()-0.5)*0.3,
+        size: Math.random()*1.8 + 0.2,
+        hue: Math.random()*360
+      });
+    }
+
+    function draw(){
+      // semi transparent gradient background to create neon glows
+      const g = ctx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0,'rgba(2,6,22,0.4)');
+      g.addColorStop(0.5,'rgba(6,2,34,0.25)');
+      g.addColorStop(1,'rgba(1,1,10,0.6)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w/DPR,h/DPR);
+
+      // moving neon blobs
+      for(let i=0;i<6;i++){
+        const rx = (Math.sin(Date.now()/1200 + i*1.3)+1)/2 * w/DPR;
+        const ry = (Math.cos(Date.now()/1000 + i*1.7)+1)/2 * h/DPR;
+        const rg = ctx.createRadialGradient(rx,ry,0,rx,ry, Math.max(w,h)/4);
+        const color = i%2===0 ? 'rgba(0,255,225,' : 'rgba(255,45,202,';
+        rg.addColorStop(0, color + '0.06)');
+        rg.addColorStop(0.6, color + '0.02)');
+        rg.addColorStop(1, color + '0.00)');
+        ctx.fillStyle = rg;
+        ctx.fillRect(0,0,w/DPR,h/DPR);
+      }
+
+      // stars/particles
+      for(let p of particles){
+        p.x += p.vx;
+        p.y += p.vy;
+        if(p.x < -50) p.x = w/DPR + 50;
+        if(p.x > w/DPR + 50) p.x = -50;
+        if(p.y < -50) p.y = h/DPR + 50;
+        if(p.y > h/DPR + 50) p.y = -50;
+        ctx.beginPath();
+        const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size*8);
+        glow.addColorStop(0, `hsla(${p.hue},90%,70%,0.18)`);
+        glow.addColorStop(0.5, `hsla(${p.hue},90%,60%,0.06)`);
+        glow.addColorStop(1, `hsla(${p.hue},90%,60%,0.00)`);
+        ctx.fillStyle = glow;
+        ctx.arc(p.x, p.y, p.size*6, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.arc(p.x, p.y, p.size*0.6, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    let raf;
+    function loop(){
+      draw();
+      raf = requestAnimationFrame(loop);
+    }
+    loop();
+
+    // handle resize
+    window.addEventListener('resize', ()=> {
+      cancelAnimationFrame(raf);
+      w = canvas.width = innerWidth * DPR;
+      h = canvas.height = innerHeight * DPR;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      particles.length = 0;
+      for(let i=0;i<NUM;i++){
+        particles.push({
+          x: Math.random()*innerWidth,
+          y: Math.random()*innerHeight,
+          vx: (Math.random()-0.5)*0.3,
+          vy: (Math.random()-0.5)*0.3,
+          size: Math.random()*1.8 + 0.2,
+          hue: Math.random()*360
+        });
+      }
+      loop();
+    });
+
+    // =========================
+    // Simulated ticker and small chart
+    // =========================
+    const tickStream = document.getElementById('tickerStream');
+    const symbols = ['HBL','MCB','OGDC','PSO','KEL','ENGRO','UBL','MARI','FATIMA','TRG'];
+    function randPrice(base=100){
+      return +(base + (Math.random()-0.5)*4).toFixed(2)
+    }
+    function makeTick(sym){
+      const base = 100 + Math.floor(Math.random()*250);
+      const price = randPrice(base);
+      const up = Math.random() > 0.45;
+      return {sym, price, up};
+    }
+
+    // create duplicated stream to allow seamless scrolling
+    function populateTicker(){
+      tickStream.innerHTML = '';
+      const items = [];
+      for(let i=0;i<12;i++){
+        const s = makeTick(symbols[Math.floor(Math.random()*symbols.length)]);
+        items.push(s);
+      }
+      // duplicate
+      const two = items.concat(items);
+      for(let it of two){
+        const el = document.createElement('div');
+        el.className = 'tick-item ' + (it.up ? 'up':'down');
+        el.innerHTML = `<span class="sym">${it.sym}</span><span>${it.price}</span>`;
+        tickStream.appendChild(el);
+      }
+    }
+    populateTicker();
+    setInterval(populateTicker, 6000);
+
+    // Mini line chart using canvas
+    const miniCanvas = document.getElementById('miniChart');
+    const mctx = miniCanvas.getContext('2d');
+    function drawMini(){
+      const rect = miniCanvas.getBoundingClientRect();
+      miniCanvas.width = rect.width * DPR;
+      miniCanvas.height = rect.height * DPR;
+      miniCanvas.style.width = rect.width + 'px';
+      miniCanvas.style.height = rect.height + 'px';
+      mctx.setTransform(DPR,0,0,DPR,0,0);
+
+      // generate simulated data
+      const N = 80;
+      let data = [];
+      let price = 110 + Math.random()*40;
+      for(let i=0;i<N;i++){
+        price += (Math.random()-0.5)*1.6;
+        data.push(price);
+      }
+      // gradient
+      const g = mctx.createLinearGradient(0,0,rect.width,0);
+      g.addColorStop(0,'rgba(0,255,225,0.16)');
+      g.addColorStop(1,'rgba(255,45,202,0.16)');
+
+      // clear
+      mctx.clearRect(0,0,rect.width,rect.height);
+      // background
+      mctx.fillStyle = 'rgba(0,0,0,0.08)';
+      mctx.fillRect(0,0,rect.width,rect.height);
+
+      // draw line
+      mctx.lineWidth = 2.4;
+      mctx.strokeStyle = 'rgba(200,240,255,0.95)';
+      mctx.beginPath();
+      for(let i=0;i<N;i++){
+        const x = i/(N-1)*rect.width;
+        const y = rect.height - (data[i]-Math.min(...data))/(Math.max(...data)-Math.min(...data))*rect.height;
+        if(i===0) mctx.moveTo(x,y); else mctx.lineTo(x,y);
+      }
+      mctx.stroke();
+
+      // area fill
+      mctx.lineTo(rect.width, rect.height);
+      mctx.lineTo(0, rect.height);
+      mctx.closePath();
+      mctx.fillStyle = g;
+      mctx.fill();
+
+      requestAnimationFrame(drawMini);
+    }
+    drawMini();
+
+    // =========================
+    // Card tilt effect — interactive 3D tilt based on mouse
+    // =========================
+    const cards = document.querySelectorAll('[data-card]');
+    document.addEventListener('mousemove', (e)=> {
+      const cx = window.innerWidth/2;
+      const cy = window.innerHeight/2;
+      const dx = (e.clientX - cx) / cx;
+      const dy = (e.clientY - cy) / cy;
+      // slight parallax for whole grid
+      const grid = document.getElementById('appGrid');
+      grid.style.transform = `translateZ(${40 - Math.abs(dx)*18}px) rotateX(${6 - dy*8}deg) rotateY(${dx*6}deg)`;
+      // tilt each card
+      cards.forEach(card=>{
+        const rX = (e.clientY - (card.getBoundingClientRect().top + card.offsetHeight/2))/12;
+        const rY = (e.clientX - (card.getBoundingClientRect().left + card.offsetWidth/2))/18;
+        card.style.transform = `rotateX(${ -rX }deg) rotateY(${ rY }deg) translateZ(20px)`;
+      });
+    });
+
+    // reset on leave
+    document.addEventListener('mouseleave', ()=> {
+      cards.forEach(c=> c.style.transform = '');
+      document.getElementById('appGrid').style.transform = 'translateZ(40px) rotateX(6deg)';
+    });
+
+    // =========================
+    // Simple interactive behavior: simulate orders/backtest/run
+    // =========================
+    const buyBtn = document.getElementById('buyBtn');
+    const sellBtn = document.getElementById('sellBtn');
+    const tradeVal = document.getElementById('tradeVal');
+    const stratVal = document.getElementById('stratVal');
+    const moversVal = document.getElementById('moversVal');
+    const riskVal = document.getElementById('riskVal');
+
+    function simulateTrade(side){
+      const sym = (document.getElementById('symbolInput').value || symbols[Math.floor(Math.random()*symbols.length)]).toUpperCase();
+      const qty = Number(document.getElementById('qty').value || 100);
+      const price = Number(document.getElementById('price').value || randPrice(110));
+      const id = 'SIM-' + Math.floor(Math.random()*90000+1000);
+      tradeVal.textContent = `${side} ${qty} × ${sym} @ ${price.toFixed(2)} — ${id}`;
+      // flash a mover
+      moversVal.textContent = `${sym} • ${price.toFixed(2)} ${side==='BUY' ? '▲':'▼'}`;
+      // update risk and strategy metrics randomly
+      const r = ['Low','Moderate','High'][Math.floor(Math.random()*3)];
+      riskVal.textContent = r;
+      stratVal.textContent = `${document.getElementById('strategySelect').value} • WinRate ${Math.floor(50+Math.random()*18)}%`;
+    }
+
+    buyBtn.addEventListener('click', ()=> simulateTrade('BUY'));
+    sellBtn.addEventListener('click', ()=> simulateTrade('SELL'));
+
+    document.getElementById('runBtn').addEventListener('click', ()=>{
+      stratVal.textContent = document.getElementById('strategySelect').value + ' • RUNNING';
+      // animate ticker faster for a while
+      tickStream.style.animationDuration = '6s';
+      setTimeout(()=> tickStream.style.animationDuration = '18s', 5000);
+    });
+
+    document.getElementById('backtestBtn').addEventListener('click', ()=>{
+      // mock backtest modal-like effect
+      const wins = Math.floor(40 + Math.random()*30);
+      const trades = Math.floor(60 + Math.random()*80);
+      const pnl = (Math.random()*0.22 - 0.02) * 100000;
+      alert(`Backtest results\nStrategy: ${document.getElementById('strategySelect').value}\nTrades: ${trades}\nWins: ${wins}\nP&L: ${pnl.toFixed(2)}`);
+    });
+
+    document.getElementById('connectBtn').addEventListener('click', ()=>{
+      // fake wallet connect animation
+      const btn = document.getElementById('connectBtn');
+      btn.textContent = 'CONNECTED';
+      btn.classList.remove('primary');
+      btn.style.background = 'linear-gradient(90deg,#051724,#0b1730)';
+      btn.disabled = true;
+    });
+
+    document.getElementById('paperBtn').addEventListener('click', ()=>{
+      alert('Paper trading enabled — all actions simulated locally on your browser.');
+    });
+
+    // small auto update for some card values
+    setInterval(()=>{
+      document.getElementById('indVal').textContent = `RSI ${Math.floor(35+Math.random()*50)} • EMA(20) ${ (100 + Math.random()*20).toFixed(2) }`;
+      document.getElementById('latVal').textContent = `${Math.floor(20 + Math.random()*120)}ms`;
+    }, 2200);
+
+    // cube hover speed change
+    const cube = document.getElementById('cube');
+    cube.addEventListener('mouseenter', ()=> cube.style.animationDuration = '3s');
+    cube.addEventListener('mouseleave', ()=> cube.style.animationDuration = '10s');
+
+    // Accessibility: keyboard shortcuts (B = buy, S = sell, R = run)
+    document.addEventListener('keydown', (e)=>{
+      if(e.key.toLowerCase() === 'b') simulateTrade('BUY');
+      if(e.key.toLowerCase() === 's') simulateTrade('SELL');
+      if(e.key.toLowerCase() === 'r') document.getElementById('runBtn').click();
+    });
+
+    // small onboarding pulses
+    setTimeout(()=> {
+      document.querySelector('.logo').animate([{transform:'scale(0.96)'},{transform:'scale(1.06)'},{transform:'scale(1)'}], {duration:2200, iterations:1, easing:'ease-out'});
+    }, 1200);
+  </script>
+</body>
+</html>
